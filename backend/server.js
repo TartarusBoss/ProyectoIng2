@@ -1,17 +1,27 @@
 import express from "express";
 import cors from "cors";
-// 👇 cambia esta línea
+import { initDb } from "./db.js";
+import authRoutes from "./routes/authRoutes.js";
 import surveyRoutes from "./routes/surveyRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
 
-// 👇 ahora sí funciona la ruta correcta
+const dbPromise = initDb();
+
+app.use(async (req, res, next) => {
+  req.db = await dbPromise;
+  next();
+});
+
+app.use("/api/auth", authRoutes);
 app.use("/api/survey", surveyRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.listen(PORT, () => {
-  console.log(`✅ Servidor escuchando en http://localhost:${PORT}`);
+  console.log(`✅ Backend escuchando en http://localhost:${PORT}`);
 });

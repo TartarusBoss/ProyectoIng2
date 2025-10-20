@@ -1,174 +1,138 @@
 import React, { useState } from "react";
-import { sendSurvey } from "../api";
+import { submitSurvey } from "../api";
 import "./SurveyForm.css";
 
-const preguntas30 = [
-  { id: 1, text: "El docente explica los temas de forma clara.", adaptativa: "¿Qué parte de las explicaciones no ha quedado clara?" },
-  { id: 2, text: "El ritmo de la clase es adecuado para mi aprendizaje." },
-  { id: 3, text: "El docente utiliza recursos tecnológicos de manera adecuada." },
-  { id: 4, text: "Me siento motivado a participar en las actividades de clase.", adaptativa: "¿Qué actividad te motivaría más a participar en clase?" },
-  { id: 5, text: "El docente responde de manera oportuna a las dudas." },
-  { id: 6, text: "La metodología utilizada ha facilitado mi aprendizaje.", adaptativa: "¿Qué cambios en la metodología propondrías?" },
-  { id: 7, text: "El docente ha mostrado fortalezas importantes en su desempeño hasta ahora." },
-  { id: 8, text: "El docente está comprometido con mejorar su enseñanza durante el resto del semestre." },
-  { id: 9, text: "El docente fomenta un ambiente respetuoso en clase." },
-  { id: 10, text: "La organización de los contenidos facilita mi aprendizaje." }
+const QUESTIONS_30 = [
+  "El docente explica los temas de forma clara.",
+  "El ritmo de la clase es adecuado para mi aprendizaje.",
+  "Me siento motivado a participar en las actividades de clase.",
+  "El docente responde de manera oportuna a las dudas.",
+  "La metodología utilizada ha facilitado mi aprendizaje.",
+  "Considero que los ejemplos dados en clase me ayudan a comprender los temas.",
+  "Siento que estoy logrando los objetivos de aprendizaje planteados hasta ahora.",
+  "La cantidad de tareas o actividades hasta este punto es adecuada para mi aprendizaje.",
+  "Percibo que el docente se preocupa por mi progreso en la asignatura hasta ahora."
 ];
 
-const preguntas70 = [
-  { id: 1, text: "El curso me ha permitido aprender los contenidos principales de la asignatura." },
-  { id: 2, text: "El docente utiliza estrategias adecuadas para evaluar mi desempeño.", adaptativa: "¿Qué cambios recomendarías en la forma de evaluar?" },
-  { id: 3, text: "La relación entre el docente y los estudiantes favorece el aprendizaje.", adaptativa: "¿Qué aspecto de la relación docente-estudiantes debería mejorar?" },
-  { id: 4, text: "El docente fomenta la participación y el debate en clase." },
-  { id: 5, text: "Los recursos y materiales utilizados han sido útiles para mi aprendizaje." },
-  { id: 6, text: "La retroalimentación recibida por parte del docente ha sido clara y constructiva.", adaptativa: "¿Qué tipo de retroalimentación te ayudaría más a mejorar tu aprendizaje?" },
-  { id: 7, text: "La metodología utilizada ha sido útil para comprender los contenidos del curso." },
-  { id: 8, text: "El docente ha reforzado los temas necesarios para garantizar el aprendizaje completo." },
-  { id: 9, text: "El docente mantiene la motivación de los estudiantes durante el curso." },
-  { id: 10, text: "Los objetivos del curso fueron claros desde el inicio." }
+
+const QUESTIONS_70 = [
+  "El curso me ha permitido aprender los contenidos principales de la asignatura.",
+  "El docente utiliza estrategias adecuadas para evaluar mi desempeño.",
+  "La relación entre el docente y los estudiantes favorece el aprendizaje.",
+  "El docente fomenta la participación y el debate en clase.",
+  "Los recursos y materiales utilizados han sido útiles para mi aprendizaje.",
+  "La retroalimentación recibida por parte del docente ha sido clara y constructiva.",
+  "Los conceptos aprendidos hasta ahora me permiten resolver problemas más complejos de la asignatura.",
+  "Considero que el ritmo de la clase y las actividades me han permitido consolidar mis conocimientos.",
+  "La retroalimentación recibida hasta este punto ha mejorado mi desempeño académico.",
+  "Percibo que el docente se preocupa por mi progreso en la asignatura hasta ahora."
 ];
 
-export default function SurveyForm({ surveyType = "30%", goBack }) {
-  const [encuesta, setEncuesta] = useState(surveyType === "30%" ? 30 : 70);
+export default function SurveyForm({ token, user, subject, goBack }) {
+  const [corte, setCorte] = useState("30%");
   const [current, setCurrent] = useState(0);
-  const [respuestas, setRespuestas] = useState({ 30: {}, 70: {} });
-  const [adaptativas, setAdaptativas] = useState({});
+  const [answers, setAnswers] = useState({});
+  const [comments, setComments] = useState({});
   const [showFeedback, setShowFeedback] = useState(false);
+  const [feedback, setFeedback] = useState(null);
 
-  const preguntas = encuesta === 30 ? preguntas30 : preguntas70;
-  const total = preguntas.length;
+  const QUESTIONS = corte === "30%" ? QUESTIONS_30 : QUESTIONS_70;
 
-  const handleChange = (id, value) => {
-    setRespuestas(prev => ({
-      ...prev,
-      [encuesta]: { ...prev[encuesta], [id]: value }
-    }));
+  const handleSelect = (i, v) => setAnswers(prev => ({ ...prev, [i]: v }));
+  const handleComment = (i, v) => setComments(prev => ({ ...prev, [i]: v }));
 
-    if (preguntas.find(q => q.id === id)?.adaptativa) {
-      setAdaptativas(prev => ({
-        ...prev,
-        [id]: value === "Totalmente en desacuerdo"
-      }));
+  const next = async () => {
+    if (!answers[current]) {
+      alert("⚠️ Debes seleccionar una respuesta antes de continuar.");
+      return;
     }
-  };
 
-  const nextQuestion = async () => {
-    if (current < total - 1) {
-      setCurrent(current + 1);
-    } else {
+    if (current < QUESTIONS.length - 1) {
+      return setCurrent(c => c + 1);
+    }
+
+    const payload = {
+      surveyType: corte,
+      subjectId: subject.id,
+      answers: QUESTIONS.map((q, i) => ({ question: q, answer: answers[i] || "", comment: comments[i] || "" }))
+    };
+
+    try {
+      await submitSurvey(token, payload);
+      // Don't fetch student feedback in admin; show a concise thank-you message instead
+      setFeedback(null);
       setShowFeedback(true);
-      await sendSurvey({ surveyType: encuesta, answers: respuestas[encuesta] });
+    } catch (err) {
+      alert("Error al enviar la encuesta.");
+      console.error(err);
     }
   };
 
-  const switchEncuesta = () => {
-    const nuevo = encuesta === 30 ? 70 : 30;
-    setEncuesta(nuevo);
-    setCurrent(0);
-    setShowFeedback(false);
-  };
-
-  // ✅ Retroalimentación fija distinta para cada encuesta
-  const feedback30 = {
-    docente: [
-      "👍 Has demostrado claridad al explicar los temas, lo que ha facilitado el proceso de aprendizaje.",
-      "📉 Podrías mejorar la forma en que fomentas la participación para involucrar a más estudiantes."
-    ],
-    estudiante: [
-      "🌟 Has mostrado compromiso con las clases hasta este punto del semestre.",
-      "📚 Se recomienda reforzar el estudio independiente para mejorar el rendimiento en la segunda parte del curso."
-    ]
-  };
-
-  const feedback70 = {
-    docente: [
-      "✅ Tu metodología ha tenido un impacto positivo en el aprendizaje de los estudiantes.",
-      "⚠️ Considera ajustar algunos métodos de evaluación para que reflejen mejor las competencias desarrolladas."
-    ],
-    estudiante: [
-      "👏 Has participado activamente en el proceso formativo y has aprovechado los recursos del curso.",
-      "🔎 Sería útil repasar los temas clave antes de los exámenes finales para consolidar el conocimiento."
-    ]
-  };
-
-  const feedback = encuesta === 30 ? feedback30 : feedback70;
-
+  // Show a simple thank-you screen after submission. We don't need
+  // to wait for `feedback` (it is intentionally null for student view),
+  // so only check `showFeedback`.
   if (showFeedback) {
     return (
       <div className="container">
-        <h2>👀 Retroalimentación – Corte {encuesta}%</h2>
-
-        <h3>Para el docente:</h3>
-        <ul>
-          {feedback.docente.map((f, idx) => (
-            <li key={idx}>{f}</li>
-          ))}
-        </ul>
-
-        <h3>Para el estudiante:</h3>
-        <ul>
-          {feedback.estudiante.map((f, idx) => (
-            <li key={idx}>{f}</li>
-          ))}
-        </ul>
-
-        {goBack && <button onClick={goBack}>⬅️ Volver al inicio</button>}
-        <button onClick={switchEncuesta} style={{ marginLeft: "10px" }}>
-          Cambiar de encuesta
-        </button>
+        <h3>✅ Encuesta enviada correctamente</h3>
+        <h4>Gracias por la retroalimentación del {corte} del semestre</h4>
+        <button onClick={goBack}>Volver</button>
       </div>
     );
   }
 
-  const progress = ((current + 1) / total) * 100;
+  const progress = ((current + 1) / QUESTIONS.length) * 100;
 
   return (
     <div className="container">
       <div className="header">
-        <h1>Encuesta Docente – Corte {encuesta}%</h1>
-        <button onClick={switchEncuesta}>
-          Ir a encuesta {encuesta === 30 ? "70%" : "30%"}
-        </button>
+        <h1>Encuesta — {subject.name}</h1>
+        <button onClick={goBack}>← Volver</button>
       </div>
 
-      <div className="contador">
-        Pregunta {current + 1} de {total}
+      <div style={{ marginBottom: 10 }}>
+        <label>Corte:</label>{" "}
+        <select value={corte} onChange={e => setCorte(e.target.value)}>
+          <option value="30%">30%</option>
+          <option value="70%">70%</option>
+        </select>
       </div>
 
       <div className="progress">
         <div className="progress-bar" style={{ width: `${progress}%` }}></div>
       </div>
 
-      <div className="pregunta active">
-        <h2>{preguntas[current].text}</h2>
+      <div className="contador">
+        Pregunta {current + 1} de {QUESTIONS.length}
+      </div>
 
+      <div className="pregunta">
+        <p>{QUESTIONS[current]}</p>
         <div className="likert">
-          {["Totalmente en desacuerdo","En desacuerdo","Neutral","De acuerdo","Totalmente de acuerdo"].map((label, idx) => (
-            <label key={idx} style={{ margin: "0 5px" }}>
-              {label}<br />
+          {["Totalmente en desacuerdo", "En desacuerdo", "Neutral", "De acuerdo", "Totalmente de acuerdo"].map(opt => (
+            <label key={opt}>
               <input
                 type="radio"
-                name={`p${preguntas[current].id}`}
-                value={label}
-                onChange={() => handleChange(preguntas[current].id, label)}
+                name={`q${current}`}
+                value={opt}
+                checked={answers[current] === opt}
+                onChange={() => handleSelect(current, opt)}
               />
+              {opt}
             </label>
           ))}
         </div>
 
-        {preguntas[current].adaptativa && adaptativas[preguntas[current].id] && (
-          <textarea
-            rows="3"
-            placeholder={preguntas[current].adaptativa}
-            onChange={(e) => handleChange(preguntas[current].id + "_adapt", e.target.value)}
-            style={{ marginTop: "10px", width: "100%" }}
-          ></textarea>
-        )}
-
-        <button onClick={nextQuestion} style={{ marginTop: "15px" }}>
-          {current === total - 1 ? "Ver retroalimentación" : "Siguiente"}
-        </button>
+        <textarea
+          placeholder="Comentario (opcional)"
+          value={comments[current] || ""}
+          onChange={e => handleComment(current, e.target.value)}
+        />
       </div>
+
+      <button onClick={next}>
+        {current === QUESTIONS.length - 1 ? "Enviar encuesta" : "Siguiente"}
+      </button>
     </div>
   );
 }

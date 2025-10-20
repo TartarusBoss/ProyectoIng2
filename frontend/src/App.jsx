@@ -1,36 +1,46 @@
-import { useState } from "react";
-import SurveyForm from "./components/SurveyForm";
-import SurveyResults from "./components/SurveyResults";
+import React, { useState, useEffect } from "react";
+import Header from "./components/Header";
+import Login from "./components/Login";
+import StudentPanel from "./components/StudentPanel";
+import AdminPanel from "./components/AdminPanel";
 
 export default function App() {
-  const [screen, setScreen] = useState("home");
-  const [surveyType, setSurveyType] = useState(null);
+  const [user, setUser] = useState(() => {
+    const raw = localStorage.getItem("user");
+    return raw ? JSON.parse(raw) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem("token") || null);
 
-  const startSurvey = (type) => {
-    setSurveyType(type);
-    setScreen("survey");
+  useEffect(() => {
+    if (user && token) {
+      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("token", token);
+    }
+  }, [user, token]);
+
+  const onLogin = (userObj, tokenStr) => {
+    setUser(userObj);
+    setToken(tokenStr);
   };
 
-  const goHome = () => {
-    setSurveyType(null);
-    setScreen("home");
+  const logout = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
   };
+
+  if (!user) return (
+    <div>
+      <Header />
+      <Login onLogin={onLogin} />
+    </div>
+  );
 
   return (
-    <div className="container">
-      {screen === "home" && (
-        <div className="home">
-          <h1>📊 Encuestas de Evaluación Docente</h1>
-          <button onClick={() => startSurvey("30%")}>Encuesta del 30%</button>
-          <button onClick={() => startSurvey("70%")}>Encuesta del 70%</button>
-        </div>
-      )}
-
-      {screen === "survey" && (
-        <SurveyForm surveyType={surveyType} goBack={goHome} goResults={() => setScreen("results")} />
-      )}
-
-      {screen === "results" && <SurveyResults goBack={goHome} />}
+    <div>
+      <Header />
+      {user.role === 'student' ? <StudentPanel user={user} token={token} logout={logout} /> : <AdminPanel user={user} token={token} logout={logout} />}
     </div>
   );
 }
