@@ -12,6 +12,7 @@ const QUESTIONS_30 = [
   "Siento que estoy logrando los objetivos de aprendizaje planteados hasta ahora.",
   "La cantidad de tareas o actividades hasta este punto es adecuada para mi aprendizaje.",
   "Percibo que el docente se preocupa por mi progreso en la asignatura hasta ahora."
+  ,"Hasta este momento, considero que el curso ha cumplido con mis expectativas iniciales."
 ];
 
 
