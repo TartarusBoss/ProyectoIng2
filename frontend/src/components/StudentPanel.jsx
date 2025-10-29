@@ -36,13 +36,13 @@ export default function StudentPanel({ user, token, logout }) {
       {loadError ? (
         <div style={{ padding: 12, background: '#fff3f3', borderRadius: 8, color: '#a50034' }}>{loadError}</div>
       ) : (
-        <div className="grid">
+        <div className="subjects-grid">
           {subjects.map(s => (
-            <div key={s.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, textAlign: 'center' }}>
+            <div key={s.id} className="subject-card">
               <b>{s.name}</b>
-              <div style={{ marginTop: 8 }}>
-                <button className="primary-btn" onClick={() => { setSelected(s); setShowForm(true); }}>Responder encuesta</button>
-              </div>
+              <button className="primary-btn" onClick={() => { setSelected(s); setShowForm(true); }}>
+                Responder encuesta
+              </button>
             </div>
           ))}
         </div>
