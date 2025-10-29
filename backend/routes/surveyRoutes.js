@@ -10,15 +10,19 @@ router.post("/submit", authenticate, async (req, res) => {
   const userId = req.user.id;
   const { surveyType, subjectId, answers } = req.body;
 
+  // optional teacher rating (1-5 stars)
+  const teacherRating = req.body.teacherRating ? Number(req.body.teacherRating) : null;
+
   if (!surveyType || !subjectId || !Array.isArray(answers)) {
     return res.status(400).json({ message: "Datos inválidos" });
   }
 
   const info = await db.run(
-    "INSERT INTO surveys (user_id, subject_id, survey_type) VALUES (?,?,?)",
+    "INSERT INTO surveys (user_id, subject_id, survey_type, teacher_rating) VALUES (?,?,?,?)",
     userId,
     subjectId,
-    surveyType
+    surveyType,
+    teacherRating
   );
   const surveyId = info.lastID;
 
@@ -59,6 +63,12 @@ router.get("/export", async (req, res) => {
     LEFT JOIN subjects sub ON s.subject_id = sub.id
     ORDER BY s.date
   `);
+  // Note: teacher_rating is stored in surveys (1-5). Include it in export rows separately.
+  // We'll append ratings per survey id when available
+  for (const r of rows) {
+    const sr = await db.get("SELECT teacher_rating FROM surveys WHERE id = ?", r.survey_id);
+    r.teacher_rating = sr ? sr.teacher_rating : null;
+  }
 
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();

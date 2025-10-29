@@ -26,6 +26,12 @@ export async function initDb() {
     );
   `);
 
+  // Add teacher_id to subjects if not present (non-destructive)
+  const subjInfo = await db.all("PRAGMA table_info(subjects)");
+  if (!subjInfo.find(c => c.name === 'teacher_id')) {
+    await db.exec(`ALTER TABLE subjects ADD COLUMN teacher_id INTEGER`);
+  }
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS surveys (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -35,6 +41,12 @@ export async function initDb() {
       date DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Add teacher_rating to surveys if not present (stores 1-5 star rating given by student)
+  const surveyInfo = await db.all("PRAGMA table_info(surveys)");
+  if (!surveyInfo.find(c => c.name === 'teacher_rating')) {
+    await db.exec(`ALTER TABLE surveys ADD COLUMN teacher_rating INTEGER`);
+  }
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS survey_answers (
@@ -86,12 +98,36 @@ export async function initDb() {
     }
   }
 
-  // subjects (3)
-  const count = await db.get("SELECT COUNT(*) as c FROM subjects");
-  if (!count || count.c === 0) {
-    await db.run("INSERT INTO subjects (name) VALUES (?)", ["Matemáticas"]);
-    await db.run("INSERT INTO subjects (name) VALUES (?)", ["Física"]);
-    await db.run("INSERT INTO subjects (name) VALUES (?)", ["Programación"]);
+  // Ensure subjects exist and are assigned to professors. This is idempotent
+  // Lookup professor ids by username so we can assign subjects to professors
+  const prof1 = await db.get("SELECT id FROM users WHERE username = ?", "prof1");
+  const prof2 = await db.get("SELECT id FROM users WHERE username = ?", "prof2");
+  const prof3 = await db.get("SELECT id FROM users WHERE username = ?", "prof3");
+
+  const subjectsToEnsure = [
+    { name: "Matemáticas", teacher_id: prof1?.id || null },
+    { name: "Física", teacher_id: prof1?.id || null },
+    { name: "Programación", teacher_id: prof1?.id || null },
+
+    { name: "Proyecto de Ingenieria", teacher_id: prof2?.id || null },
+    { name: "Fisica 2", teacher_id: prof2?.id || null },
+    { name: "Desarrollo Web", teacher_id: prof2?.id || null },
+
+    { name: "Biologia", teacher_id: prof3?.id || null },
+    { name: "Fisica", teacher_id: prof3?.id || null },
+    { name: "Quimica", teacher_id: prof3?.id || null }
+  ];
+
+  for (const s of subjectsToEnsure) {
+    const existing = await db.get("SELECT * FROM subjects WHERE name = ?", s.name);
+    if (existing) {
+      // If subject exists but has no teacher assigned, set it (don't overwrite an existing assignment)
+      if ((existing.teacher_id === null || existing.teacher_id === undefined) && s.teacher_id) {
+        await db.run("UPDATE subjects SET teacher_id = ? WHERE id = ?", s.teacher_id, existing.id);
+      }
+    } else {
+      await db.run("INSERT INTO subjects (name, teacher_id) VALUES (?,?)", s.name, s.teacher_id);
+    }
   }
 
   return db;

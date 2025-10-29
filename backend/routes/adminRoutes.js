@@ -28,18 +28,6 @@ router.get('/professors', authenticate, async (req, res) => {
   }
 });
 
-// Get professors list
-router.get("/professors", authenticate, async (req, res) => {
-  try {
-    const db = req.db;
-    const profs = await db.all("SELECT id, name, username FROM users WHERE role = 'professor' ORDER BY id");
-    res.json(profs);
-  } catch (err) {
-    console.error("Error /admin/professors:", err);
-    res.status(500).json({ error: "server_error" });
-  }
-});
-
 // Stats per subject (admin or professor) + richer aggregations and recommendations
 router.get("/stats/:subjectId", authenticate, async (req, res) => {
   try {
@@ -195,6 +183,14 @@ router.get("/stats/:subjectId", authenticate, async (req, res) => {
       studentFeedback.push(`📚 Atención: "${low.question_text}" podría necesitar repaso.`);
     }
 
+    // Teacher rating aggregation for this subject (average stars 1-5)
+    const teacherRatingRow = await db.get(
+      `SELECT AVG(teacher_rating) as avg, COUNT(teacher_rating) as count
+       FROM surveys
+       WHERE subject_id = ? AND teacher_rating IS NOT NULL`,
+      [subjectId]
+    );
+
     res.json({
       stats: rows,
       averagesByType: avgByType,
@@ -202,6 +198,7 @@ router.get("/stats/:subjectId", authenticate, async (req, res) => {
       participation,
       distribution,
       trend,
+      teacherRating: teacherRatingRow || { avg: null, count: 0 },
       feedback: {
         teacher: teacherFeedback,
         student: studentFeedback

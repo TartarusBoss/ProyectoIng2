@@ -27,6 +27,7 @@ export default function AdminPanel({ user, token, logout }) {
   const [professors, setProfessors] = useState([]);
   const [sel, setSel] = useState(null);
   const [selectedProf, setSelectedProf] = useState(null);
+  const [teacherRating, setTeacherRating] = useState(null);
   const [stats, setStats] = useState([]);
   const [trend, setTrend] = useState([]);
   const [feedback, setFeedback] = useState(null);
@@ -38,6 +39,13 @@ export default function AdminPanel({ user, token, logout }) {
 
   const chartOptions = { responsive: true, maintainAspectRatio: false };
 
+  const renderStars = (avg) => {
+    if (!avg) return '☆☆☆☆☆';
+    const full = Math.round(avg);
+    const filled = '★'.repeat(Math.max(0, Math.min(5, full)));
+    const empty = '☆'.repeat(5 - Math.max(0, Math.min(5, full)));
+    return filled + empty;
+  };
   useEffect(() => {
     getSubjects(token)
       .then(r => { setSubjects(r.data); setLoadError(null); })
@@ -49,9 +57,17 @@ export default function AdminPanel({ user, token, logout }) {
           setLoadError('No se pudieron cargar materias. Revisa la conexión al backend.');
         }
       });
-    // default professor option (only Profesor 1 for now)
-    setProfessors([{ id: 1, name: 'Profesor 1' }]);
-    setSelectedProf({ id: 1, name: 'Profesor 1' });
+    // fetch professors from API
+    getProfessors(token)
+      .then(r => {
+        setProfessors(r.data || []);
+        // do not preselect a professor; allow showing all subjects by default
+        setSelectedProf(null);
+      })
+      .catch(err => {
+        console.error('getProfessors error', err);
+        // fallback: keep empty professors list
+      });
   }, [token]);
 
   const load = (s) => {
@@ -64,6 +80,7 @@ export default function AdminPanel({ user, token, logout }) {
         const data = r.data || {};
         setStats(data.stats || []);
         setFeedback(data.feedback || null);
+        setTeacherRating(data.teacherRating || null);
         // attach extra payloads into state for charts
         setAveragesByType(data.averagesByType || []);
         setParticipation(data.participation || []);
@@ -190,6 +207,23 @@ export default function AdminPanel({ user, token, logout }) {
   const statsContent = (
     <div>
       <div style={{ marginTop: 6 }}>
+        <div style={{ marginBottom: 12 }}>
+          <h4>Calificación del profesor</h4>
+          {teacherRating && teacherRating.avg ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 'bold' }}>{Number((teacherRating.avg||0).toFixed(2))} / 5</div>
+                <div style={{ color: '#f5c542', fontSize: 20 }}>{renderStars ? renderStars(teacherRating.avg) : ('★'.repeat(Math.round(teacherRating.avg||0)) + '☆'.repeat(5-Math.round(teacherRating.avg||0)))}</div>
+                <div style={{ fontSize: 12, color: '#666' }}>{teacherRating.count || 0} calificaciones</div>
+              </div>
+              <div style={{ width: 160, height: 80 }}>
+                <Bar data={{ labels: ['Calificación'], datasets: [{ label: 'Promedio', data: [Number((teacherRating.avg||0).toFixed(2))], backgroundColor: '#f5c542' }] }} options={{ scales: { y: { min: 0, max: 5 } }, plugins: { legend: { display: false } } }} />
+              </div>
+            </div>
+          ) : (
+            <p>No hay calificaciones del profesor aún.</p>
+          )}
+        </div>
         <h4>Promedio por pregunta (30% vs 70%)</h4>
         {groupedByQuestionChart}
 
@@ -241,7 +275,8 @@ export default function AdminPanel({ user, token, logout }) {
         <h3>Panel — {user.name} ({user.role})</h3>
         <div style={{display:'flex',gap:12,alignItems:'center'}}>
           <select value={selectedProf?.id||""} onChange={e=>onSelectProf(e.target.value)}>
-            {professors.length>0 ? professors.map(p=> <option key={p.id} value={p.id}>{p.name}</option>) : <option value="1">Profesor 1</option>}
+            <option value="">Todos</option>
+            {professors.length>0 ? professors.map(p=> <option key={p.id} value={p.id}>{p.name}</option>) : null}
           </select>
           <button onClick={logout} className="primary-btn">Cerrar sesión</button>
         </div>
@@ -250,14 +285,18 @@ export default function AdminPanel({ user, token, logout }) {
       <div className="admin-wrap">
         <div className="admin-left">
           <h4>Materias</h4>
-          {subjects.map(s => (
-            <div key={s.id} className="chart-card">
-              <b>{s.name}</b>
-              <div style={{ marginTop: 6 }}>
-                <button className="primary-btn" onClick={() => load(s)}>Ver estadísticas</button>
+          <div className="grid">
+            {(
+              (selectedProf && subjects && subjects.length>0) ? subjects.filter(s => Number(s.teacher_id) === Number(selectedProf.id)) : subjects
+            ).map(s => (
+              <div key={s.id} className="chart-card">
+                <b>{s.name}</b>
+                <div style={{ marginTop: 6 }}>
+                  <button className="primary-btn" onClick={() => load(s)}>Ver estadísticas</button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         <div className="admin-right">

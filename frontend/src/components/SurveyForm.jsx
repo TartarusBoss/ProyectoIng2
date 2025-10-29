@@ -36,6 +36,7 @@ export default function SurveyForm({ token, user, subject, goBack }) {
   const [comments, setComments] = useState({});
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [teacherRating, setTeacherRating] = useState(0);
 
   const QUESTIONS = corte === "30%" ? QUESTIONS_30 : QUESTIONS_70;
 
@@ -55,7 +56,8 @@ export default function SurveyForm({ token, user, subject, goBack }) {
     const payload = {
       surveyType: corte,
       subjectId: subject.id,
-      answers: QUESTIONS.map((q, i) => ({ question: q, answer: answers[i] || "", comment: comments[i] || "" }))
+      answers: QUESTIONS.map((q, i) => ({ question: q, answer: answers[i] || "", comment: comments[i] || "" })),
+      teacherRating: teacherRating || null
     };
 
     try {
@@ -96,6 +98,18 @@ export default function SurveyForm({ token, user, subject, goBack }) {
         <select value={corte} onChange={e => setCorte(e.target.value)}>
           <option value="30%">30%</option>
           <option value="70%">70%</option>
+        </select>
+      </div>
+
+      <div style={{ marginBottom: 10 }}>
+        <label>Calificación al docente (estrellas):</label>{" "}
+        <select value={teacherRating} onChange={e => setTeacherRating(Number(e.target.value))}>
+          <option value={0}>-- Selecciona (opcional) --</option>
+          <option value={1}>1</option>
+          <option value={2}>2</option>
+          <option value={3}>3</option>
+          <option value={4}>4</option>
+          <option value={5}>5</option>
         </select>
       </div>
 
