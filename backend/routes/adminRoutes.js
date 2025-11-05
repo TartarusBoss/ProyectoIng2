@@ -8,8 +8,20 @@ const router = express.Router();
 router.get("/subjects", authenticate, async (req, res) => {
   try {
     const db = req.db;
-    const subs = await db.all("SELECT * FROM subjects ORDER BY id");
-    res.json(subs);
+    // Si el usuario es profesor, solo devolver sus materias
+    if (req.user.role === 'professor') {
+      const subs = await db.all(
+        "SELECT s.*, u.name as teacher_name FROM subjects s LEFT JOIN users u ON s.teacher_id = u.id WHERE s.teacher_id = ? ORDER BY s.id",
+        [req.user.id]
+      );
+      res.json(subs);
+    } else {
+      // Admin ve todas las materias con el nombre del profesor
+      const subs = await db.all(
+        "SELECT s.*, u.name as teacher_name FROM subjects s LEFT JOIN users u ON s.teacher_id = u.id ORDER BY s.id"
+      );
+      res.json(subs);
+    }
   } catch (err) {
     console.error("Error /admin/subjects:", err);
     res.status(500).json({ error: "server_error" });
@@ -39,6 +51,17 @@ router.get("/stats/:subjectId", authenticate, async (req, res) => {
     if (isNaN(Number(subjectIdParam))) {
       const sub = await db.get("SELECT id FROM subjects WHERE name = ?", subjectIdParam);
       if (sub) subjectId = sub.id;
+    }
+
+    // Get teacher name for this subject
+    const subjectInfo = await db.get(
+      "SELECT s.*, u.name as teacher_name FROM subjects s LEFT JOIN users u ON s.teacher_id = u.id WHERE s.id = ?",
+      [subjectId]
+    );
+
+    // Si el usuario es profesor, verificar que la materia le pertenece
+    if (req.user.role === 'professor' && subjectInfo && subjectInfo.teacher_id !== req.user.id) {
+      return res.status(403).json({ error: "forbidden" });
     }
 
     // average score per question (map likert to 1-5)
@@ -199,6 +222,7 @@ router.get("/stats/:subjectId", authenticate, async (req, res) => {
       distribution,
       trend,
       teacherRating: teacherRatingRow || { avg: null, count: 0 },
+      teacherName: subjectInfo?.teacher_name || null, // Agregar nombre del profesor
       feedback: {
         teacher: teacherFeedback,
         student: studentFeedback

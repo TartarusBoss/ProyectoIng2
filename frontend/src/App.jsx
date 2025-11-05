@@ -3,6 +3,7 @@ import Header from "./components/Header";
 import Login from "./components/Login";
 import StudentPanel from "./components/StudentPanel";
 import AdminPanel from "./components/AdminPanel";
+import ProfessorPanel from "./components/ProfessorPanel";
 
 export default function App() {
   const [user, setUser] = useState(() => {
@@ -40,7 +41,13 @@ export default function App() {
   return (
     <div>
       <Header />
-      {user.role === 'student' ? <StudentPanel user={user} token={token} logout={logout} /> : <AdminPanel user={user} token={token} logout={logout} />}
+      {user.role === 'student' ? (
+        <StudentPanel user={user} token={token} logout={logout} />
+      ) : user.role === 'professor' ? (
+        <ProfessorPanel user={user} token={token} logout={logout} />
+      ) : (
+        <AdminPanel user={user} token={token} logout={logout} />
+      )}
     </div>
   );
 }
